@@ -7,7 +7,7 @@ using Npgsql;
 
 // One-shot job: EF Core migrations, then edition-specific TimescaleDB objects, then seed data.
 // Runs as a compose service before the apps start, and as a Container Apps Job in Azure.
-var builder = Host.CreateApplicationBuilder(args);
+var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { Args = args, ContentRootPath = AppContext.BaseDirectory });
 builder.AddGridPulseDatabase();
 using var host = builder.Build();
 
