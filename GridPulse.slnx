@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/GridPulse.Benchmarks/GridPulse.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/GridPulse.Api/GridPulse.Api.csproj" />
+    <Project Path="src/GridPulse.Core/GridPulse.Core.csproj" />
+    <Project Path="src/GridPulse.Infrastructure/GridPulse.Infrastructure.csproj" />
+    <Project Path="src/GridPulse.Ingestion/GridPulse.Ingestion.csproj" />
+    <Project Path="src/GridPulse.Migrator/GridPulse.Migrator.csproj" />
+    <Project Path="src/GridPulse.ServiceDefaults/GridPulse.ServiceDefaults.csproj" />
+    <Project Path="src/GridPulse.Simulator/GridPulse.Simulator.csproj" />
+    <Project Path="src/GridPulse.Web/GridPulse.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GridPulse.IntegrationTests/GridPulse.IntegrationTests.csproj" />
+    <Project Path="tests/GridPulse.UnitTests/GridPulse.UnitTests.csproj" />
+    <Project Path="tests/GridPulse.Web.Tests/GridPulse.Web.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\GridPulse.Core\GridPulse.Core.csproj" />
+  </ItemGroup>
+</Project>

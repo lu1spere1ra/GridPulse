@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\GridPulse.Infrastructure\GridPulse.Infrastructure.csproj" />
+    <ProjectReference Include="..\GridPulse.ServiceDefaults\GridPulse.ServiceDefaults.csproj" />
+  </ItemGroup>
+</Project>

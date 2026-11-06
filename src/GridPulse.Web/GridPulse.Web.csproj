@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GridPulse.Core\GridPulse.Core.csproj" />
+    <ProjectReference Include="..\GridPulse.ServiceDefaults\GridPulse.ServiceDefaults.csproj" />
+  </ItemGroup>
+</Project>
