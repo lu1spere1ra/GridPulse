@@ -41,6 +41,21 @@ public sealed class SimulatedMeterTests
     }
 
     [Fact]
+    public void A_restarted_simulator_continues_the_register_instead_of_rewinding_it()
+    {
+        var running = new SimulatedMeter(5, seed: 42);
+        long last = 0;
+        for (var s = 0; s < 3_600; s++)
+        {
+            last = running.Next(Midnight.AddHours(19).AddSeconds(s), spikeProbability: 0.01, offlineProbability: 0)!.EnergyWh;
+        }
+
+        // Same meter, new process, one second later.
+        var restarted = new SimulatedMeter(5, seed: 42);
+        restarted.Next(Midnight.AddHours(20).AddSeconds(1), 0, 0)!.EnergyWh.ShouldBeGreaterThanOrEqualTo(last);
+    }
+
+    [Fact]
     public void Evening_consumption_is_higher_than_night_consumption()
     {
         static double AveragePower(int hour)

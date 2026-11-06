@@ -10,6 +10,9 @@ public sealed class SimulatedMeter
 {
     private const double SpikePowerW = 9_000;
 
+    /// <summary>Registers count from this date, so their value depends on the clock, not on when the simulator started.</summary>
+    private static readonly DateTimeOffset RegisterEpoch = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
     private readonly Random _random;
     private readonly double _baseLoadW;
     private readonly double _peakLoadW;
@@ -31,6 +34,9 @@ public sealed class SimulatedMeter
 
     public string Serial { get; }
 
+    /// <summary>Upper bound of <see cref="CurrentPower"/>: full profile, maximum noise, permanent spike.</summary>
+    private double MaxPowerW => ((_baseLoadW + _peakLoadW) * 1.1) + SpikePowerW;
+
     public bool IsOffline(DateTimeOffset now) => now < _offlineUntil;
 
     public static string FormatSerial(int index) => $"MTR-{index:D6}";
@@ -48,6 +54,14 @@ public sealed class SimulatedMeter
     public ReadingMessage? Next(DateTimeOffset now, double spikeProbability, double offlineProbability)
     {
         var elapsed = _lastTick is { } last ? now - last : TimeSpan.Zero;
+        if (_lastTick is null)
+        {
+            // A real register keeps counting while the simulator is down. Anchoring it to the clock at
+            // the meter's maximum possible power keeps it monotonic across restarts (ingestion rightly
+            // rejects a register that goes backwards); a restart shows up as a forward jump.
+            _energyWh += MaxPowerW * Math.Max(0, (now - RegisterEpoch).TotalHours);
+        }
+
         _lastTick = now;
 
         if (now >= _offlineUntil && _random.NextDouble() < offlineProbability)
