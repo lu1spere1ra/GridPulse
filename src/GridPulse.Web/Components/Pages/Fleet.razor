@@ -54,15 +54,15 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Feed.FleetUpdated += OnFleetUpdated;
-        Feed.AlertChanged += OnAlertChanged;
         await Feed.StartAsync();
         _fleet = Feed.LastFleet;
 
         var now = Time.GetUtcNow();
         try
         {
-            // Backfill the chart with minute buckets so it is not empty on load; live points follow.
+            // Backfill the chart with minute buckets so it is not empty on load. This must finish
+            // before subscribing: a live point added first would be followed by older history
+            // points, and the line would run backwards in time.
             var history = await Api.GetFleetAsync(now.AddMinutes(-15), now);
             foreach (var point in history?.Series ?? [])
             {
@@ -76,12 +76,19 @@
         {
             // The connection banner already tells the operator; live data will fill in.
         }
+
+        Feed.FleetUpdated += OnFleetUpdated;
+        Feed.AlertChanged += OnAlertChanged;
     }
 
     private void OnFleetUpdated(FleetSnapshot snapshot) => InvokeAsync(() =>
     {
         _fleet = snapshot;
-        _series.Add(new ChartPoint(snapshot.Ts, snapshot.TotalPowerW));
+        if (_series.Count == 0 || snapshot.Ts > _series.Last().Ts)
+        {
+            _series.Add(new ChartPoint(snapshot.Ts, snapshot.TotalPowerW));
+        }
+
         StateHasChanged();
     });
 

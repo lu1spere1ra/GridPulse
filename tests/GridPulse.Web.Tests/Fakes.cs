@@ -53,6 +53,9 @@ public sealed class FakeTelemetryFeed : ITelemetryFeed
 /// <summary>Answers API calls from a table of canned JSON responses (by path prefix).</summary>
 public sealed class FakeApiHandler : HttpMessageHandler
 {
+    /// <summary>Runs before each response; lets a test simulate live events during a slow API call.</summary>
+    public Action<string>? OnRequest { get; set; }
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly Dictionary<string, object> _responses = new(StringComparer.OrdinalIgnoreCase);
 
@@ -68,6 +71,7 @@ public sealed class FakeApiHandler : HttpMessageHandler
     {
         var path = request.RequestUri!.AbsolutePath;
         Requests.Add($"{request.Method} {path}");
+        OnRequest?.Invoke(path);
         var match = _responses.Where(r => path.StartsWith(r.Key, StringComparison.OrdinalIgnoreCase)).OrderByDescending(r => r.Key.Length).FirstOrDefault();
         if (match.Key is null)
         {

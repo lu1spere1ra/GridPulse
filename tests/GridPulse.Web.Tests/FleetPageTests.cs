@@ -36,4 +36,29 @@ public sealed class FleetPageTests : GridPulseTestContext
             page.Find("polyline").GetAttribute("points")!.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length.ShouldBe(3);
         });
     }
+
+    [Fact]
+    public void A_snapshot_published_while_history_loads_does_not_break_time_order()
+    {
+        Api.OnRequest = path =>
+        {
+            if (path.StartsWith("/api/v1/analytics/fleet", StringComparison.Ordinal))
+            {
+                Feed.Publish(new FleetSnapshot(Now, 999_000, 500, 0, 499));
+            }
+        };
+
+        var page = Render<Fleet>();
+        Feed.Publish(new FleetSnapshot(Now.AddSeconds(1), 512_000, 500, 0, 499));
+
+        page.WaitForAssertion(() =>
+        {
+            var xs = page.Find("polyline").GetAttribute("points")!
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(p => double.Parse(p.Split(',')[0], System.Globalization.CultureInfo.InvariantCulture))
+                .ToList();
+            xs.Count.ShouldBe(3, "two history points and the snapshot that arrived after loading");
+            xs.ShouldBeInOrder(SortDirection.Ascending);
+        });
+    }
 }
