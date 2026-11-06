@@ -14,6 +14,8 @@ public sealed class InMemoryMeterRegistry : IMeterRegistry
 
     public int Count => _ids.Count;
 
+    public IReadOnlyCollection<int> MeterIds => _ids.Values;
+
     public bool TryResolve(string serial, out int meterId) => _ids.TryGetValue(serial, out meterId);
 
     public string? GetSerial(int meterId) => $"MTR-{meterId:D6}";

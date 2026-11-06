@@ -5,6 +5,9 @@ public interface IMeterRegistry
 {
     int Count { get; }
 
+    /// <summary>Ids of every registered meter (used to detect meters that never report).</summary>
+    IReadOnlyCollection<int> MeterIds { get; }
+
     bool TryResolve(string serial, out int meterId);
 
     string? GetSerial(int meterId);

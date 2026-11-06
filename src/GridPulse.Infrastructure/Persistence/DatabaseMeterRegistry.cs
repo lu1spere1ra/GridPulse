@@ -28,6 +28,8 @@ public sealed class DatabaseMeterRegistry(
 
     public int Count => _snapshot.BySerial.Count;
 
+    public IReadOnlyCollection<int> MeterIds => _snapshot.ById.Keys;
+
     public bool TryResolve(string serial, out int meterId)
     {
         if (_snapshot.BySerial.TryGetValue(serial, out meterId))
