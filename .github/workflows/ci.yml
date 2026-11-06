@@ -26,8 +26,8 @@ jobs:
 
       - name: Unit and component tests
         run: |
-          dotnet test tests/GridPulse.UnitTests -c Release --no-build
-          dotnet test tests/GridPulse.Web.Tests -c Release --no-build
+          dotnet test --project tests/GridPulse.UnitTests -c Release --no-build
+          dotnet test --project tests/GridPulse.Web.Tests -c Release --no-build
 
       - name: Integration tests (Testcontainers)
-        run: dotnet test tests/GridPulse.IntegrationTests -c Release --no-build
+        run: dotnet test --project tests/GridPulse.IntegrationTests -c Release --no-build
