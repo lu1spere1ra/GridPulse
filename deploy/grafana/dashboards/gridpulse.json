@@ -358,7 +358,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "gridpulse_ingestion_queue_depth",
+          "expr": "sum by (stage) (gridpulse_ingestion_queue_depth)",
           "legendFormat": "{{stage}}",
           "datasource": {
             "type": "prometheus",
