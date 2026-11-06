@@ -16,6 +16,7 @@ public sealed class IngestionMetrics
     private readonly Histogram<int> _batchSize;
     private readonly Histogram<double> _batchDuration;
     private readonly Counter<long> _windowsClosed;
+    private readonly Counter<long> _alertsRaised;
 
     public IngestionMetrics(IMeterFactory meterFactory)
     {
@@ -29,6 +30,7 @@ public sealed class IngestionMetrics
         _batchSize = meter.CreateHistogram<int>("gridpulse.ingestion.batch.size", "{reading}");
         _batchDuration = meter.CreateHistogram<double>("gridpulse.ingestion.batch.duration", "s");
         _windowsClosed = meter.CreateCounter<long>("gridpulse.ingestion.windows.closed", "{window}");
+        _alertsRaised = meter.CreateCounter<long>("gridpulse.alerts.raised", "{alert}");
         Meter = meter;
     }
 
@@ -42,6 +44,9 @@ public sealed class IngestionMetrics
     public void Late() => _late.Add(1);
 
     public void WindowsClosed(int count) => _windowsClosed.Add(count);
+
+    public void AlertRaised(GridPulse.Core.Contracts.AlertRuleType type) =>
+        _alertsRaised.Add(1, new KeyValuePair<string, object?>("type", type.ToString()));
 
     public void BatchPersisted(IReadOnlyList<Reading> batch, TimeSpan duration, DateTimeOffset committedAt)
     {
