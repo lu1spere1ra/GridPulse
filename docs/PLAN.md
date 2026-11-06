@@ -1,6 +1,8 @@
 # GridPulse — Implementation Plan
 
-> Status: **approved** (revision 2). Revision 1 was approved with one instruction: *"no
+> Status: **implemented** (all phases). See §10 for what changed during implementation and why.
+>
+> Original status: **approved** (revision 2). Revision 1 was approved with one instruction: *"no
 > over-engineering, keep it clean"*. This revision removes everything that did not earn its
 > place. The removed items are listed in §9, so the trade-offs remain visible.
 
@@ -373,3 +375,18 @@ Test doubles are hand-written fakes. No mocking library is used.
 | VNet, private DNS, Key Vault | Not essential for a demo deployment; documented as the production upgrade |
 | Architecture-test project, NSubstitute, separate Contracts/Domain projects | Fewer moving parts; `Core` holds both |
 | Trace propagation through MQTT | Out of scope; metrics are what the performance story needs |
+
+---
+
+## 10. What changed during implementation
+
+| Planned | Built | Why |
+|---|---|---|
+| Rollups in the EF migration (`suppressTransaction`) | EF migration owns tables and the hypertable; `TimescaleSetup` creates the rollups after migrating | The edition is only known at run time, so the decision is easier to test outside the migration |
+| PDFsharp-MigraDoc (MIT) | Pinned to **6.2.4** | 6.5 moved to AGPL-3.0 and fails at run time without a licence (ADR-0008) |
+| Writer: COPY → staging → `ON CONFLICT` | **Optimistic raw COPY**, staging merge only on duplicate | Benchmarks: 3.3× faster writer (docs/benchmarks.md §3) |
+| One MQTT connection in the simulator | Configurable connection pool (default 1) | Load tests above ~25k/s; not needed by default |
+| — | Mosquitto `set_tcp_nodelay true` | Found by load testing: Nagle delayed QoS 1 acknowledgements (12k → 28k msg/s) |
+| — | Simulator registers anchored to wall-clock time | Found by load testing: restarts rewound registers and ingestion (correctly) rejected them |
+| One ADR on stream vs database aggregation inside other ADRs | Separate ADR-0009 | It is the first question a reviewer asks |
+| Metrics in Azure via the Container Apps OTel agent | Not wired | The agent forwards traces/logs to App Insights, not custom metrics; documented in `docs/deploy-azure.md` |
