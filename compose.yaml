@@ -1,6 +1,12 @@
 name: gridpulse
 
-# Host ports are restricted to 5300-5399 (see docs/PLAN.md, section 6).
+# Every host port is in 5300-5399 (see docs/PLAN.md, section 6).
+# Scale the fleet with:  GRIDPULSE_METERS=5000 docker compose up
+
+x-dotnet-env: &dotnet-env
+  ConnectionStrings__GridPulse: Host=db;Port=5432;Database=gridpulse;Username=gridpulse;Password=gridpulse
+  Mqtt__Host: mqtt
+  Mqtt__Port: "1883"
 
 services:
   db:
@@ -26,6 +32,48 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
+  migrator:
+    build: { context: ., args: { PROJECT: GridPulse.Migrator } }
+    image: gridpulse/migrator:local
+    environment: *dotnet-env
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    build: { context: ., args: { PROJECT: GridPulse.Api } }
+    image: gridpulse/api:local
+    environment: *dotnet-env
+    ports: ["5301:8080"]
+    depends_on:
+      migrator: { condition: service_completed_successfully }
+      mqtt: { condition: service_healthy }
+
+  ingestion:
+    build: { context: ., args: { PROJECT: GridPulse.Ingestion } }
+    image: gridpulse/ingestion:local
+    environment: *dotnet-env
+    depends_on:
+      migrator: { condition: service_completed_successfully }
+      mqtt: { condition: service_healthy }
+
+  simulator:
+    build: { context: ., args: { PROJECT: GridPulse.Simulator } }
+    image: gridpulse/simulator:local
+    environment:
+      Mqtt__Host: mqtt
+      Mqtt__Port: "1883"
+      Simulator__ApiBaseUrl: http://api:8080/
+      Simulator__MeterCount: ${GRIDPULSE_METERS:-500}
+    depends_on: [api, ingestion]
+
+  web:
+    build: { context: ., args: { PROJECT: GridPulse.Web } }
+    image: gridpulse/web:local
+    environment:
+      Api__BaseUrl: http://api:8080/
+    ports: ["5300:8080"]
+    depends_on: [api]
 
 volumes:
   db-data:
