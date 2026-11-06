@@ -8,6 +8,7 @@
     <Project Path="src/GridPulse.Infrastructure/GridPulse.Infrastructure.csproj" />
     <Project Path="src/GridPulse.Ingestion/GridPulse.Ingestion.csproj" />
     <Project Path="src/GridPulse.Migrator/GridPulse.Migrator.csproj" />
+    <Project Path="src/GridPulse.Reports/GridPulse.Reports.csproj" />
     <Project Path="src/GridPulse.ServiceDefaults/GridPulse.ServiceDefaults.csproj" />
     <Project Path="src/GridPulse.Simulator/GridPulse.Simulator.csproj" />
     <Project Path="src/GridPulse.Web/GridPulse.Web.csproj" />

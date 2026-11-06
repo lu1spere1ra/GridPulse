@@ -1,0 +1,9 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "ConnectionStrings__GridPulse": "Host=localhost;Port=5310;Database=gridpulse;Username=gridpulse;Password=gridpulse",
+    "ReportStorage__ConnectionString": "UseDevelopmentStorage=true"
+  }
+}
