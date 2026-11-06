@@ -8,7 +8,6 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.Extensions.Resilience" Version="10.11.0" />
     <PackageVersion Include="Asp.Versioning.Http" Version="10.2.3" />
     <PackageVersion Include="Asp.Versioning.OpenApi" Version="10.2.3" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.19.0" />
@@ -25,13 +24,18 @@
   <ItemGroup Label="Messaging, email, reports">
     <PackageVersion Include="MQTTnet" Version="5.2.0.1603" />
     <PackageVersion Include="MailKit" Version="4.18.2" />
-    <PackageVersion Include="PDFsharp-MigraDoc" Version="6.5.0" />
+    <!-- 6.2.4 is the last MIT release: PDFsharp 6.5+ is AGPL-3.0 (commercial licence otherwise). Do not upgrade. -->
+    <PackageVersion Include="PDFsharp-MigraDoc" Version="6.2.4" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.1" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <PackageVersion Include="Microsoft.Azure.Functions.Worker" Version="2.52.0" />
     <PackageVersion Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.1.0" />
     <PackageVersion Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" Version="4.3.1" />
     <PackageVersion Include="Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore" Version="2.1.1" />
+  </ItemGroup>
+  <ItemGroup Label="Security pins (transitive)">
+    <!-- Pulled in by PDFsharp; 8.0.1 has known vulnerabilities (GHSA-2fmv-rv2c-59x7, GHSA-846f-f764-76mx). -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
   </ItemGroup>
   <ItemGroup Label="UI">
     <PackageVersion Include="MudBlazor" Version="9.12.0" />
