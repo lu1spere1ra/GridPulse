@@ -3,7 +3,13 @@ name: gridpulse
 # Every host port is in 5300-5399 (see docs/PLAN.md, section 6).
 # Scale the fleet with:  GRIDPULSE_METERS=5000 docker compose up
 
+x-otel-env: &otel-env
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://prometheus:9090/api/v1/otlp
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_METRIC_EXPORT_INTERVAL: "5000"
+
 x-dotnet-env: &dotnet-env
+  <<: *otel-env
   ConnectionStrings__GridPulse: Host=db;Port=5432;Database=gridpulse;Username=gridpulse;Password=gridpulse
   Mqtt__Host: mqtt
   Mqtt__Port: "1883"
@@ -90,6 +96,7 @@ services:
     build: { context: ., args: { PROJECT: GridPulse.Simulator } }
     image: gridpulse/simulator:local
     environment:
+      <<: *otel-env
       Mqtt__Host: mqtt
       Mqtt__Port: "1883"
       Simulator__ApiBaseUrl: http://api:8080/
@@ -100,9 +107,31 @@ services:
     build: { context: ., args: { PROJECT: GridPulse.Web } }
     image: gridpulse/web:local
     environment:
+      <<: *otel-env
       Api__BaseUrl: http://api:8080/
     ports: ["5300:8080"]
     depends_on: [api]
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-otlp-receiver
+      - --storage.tsdb.retention.time=3d
+    volumes: [./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro]
+    ports: ["5330:9090"]
+
+  grafana:
+    image: grafana/grafana:13.3.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/gridpulse.json
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["5331:3000"]
+    depends_on: [prometheus]
 
 volumes:
   db-data:

@@ -1,0 +1,13 @@
+# Services push metrics with OTLP to /api/v1/otlp (Prometheus 3 native receiver, no collector).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+otlp:
+  # Keep the service name as the "job" label and expose instance ids for per-replica views.
+  promote_resource_attributes: [service.name, service.instance.id]
+
+storage:
+  tsdb:
+    # OTLP pushes from several services can arrive slightly out of order.
+    out_of_order_time_window: 30s
