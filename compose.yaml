@@ -52,10 +52,18 @@ services:
   ingestion:
     build: { context: ., args: { PROJECT: GridPulse.Ingestion } }
     image: gridpulse/ingestion:local
-    environment: *dotnet-env
+    environment:
+      <<: *dotnet-env
+      Email__Host: mailpit
+      Email__Port: "1025"
     depends_on:
       migrator: { condition: service_completed_successfully }
       mqtt: { condition: service_healthy }
+      mailpit: { condition: service_started }
+
+  mailpit:
+    image: axllent/mailpit:v1.33.0
+    ports: ["5340:8025"] # web UI; SMTP (1025) stays on the compose network
 
   simulator:
     build: { context: ., args: { PROJECT: GridPulse.Simulator } }
