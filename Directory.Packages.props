@@ -1,7 +1,8 @@
 <Project>
   <!-- Central Package Management: every version lives here. -->
   <PropertyGroup>
-    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+    <!-- Pin transitive versions too, so EF Core comes in one version only (provider and design tools). -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup Label="Hosting and framework">
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
@@ -14,8 +15,11 @@
   <ItemGroup Label="Data">
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.14" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14" />
     <PackageVersion Include="Dapper" Version="2.1.89" />
+    <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
   </ItemGroup>
   <ItemGroup Label="Messaging, email, reports">
     <PackageVersion Include="MQTTnet" Version="5.2.0.1603" />
