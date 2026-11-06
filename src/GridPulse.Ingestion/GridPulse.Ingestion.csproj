@@ -3,4 +3,9 @@
     <ProjectReference Include="..\GridPulse.Infrastructure\GridPulse.Infrastructure.csproj" />
     <ProjectReference Include="..\GridPulse.ServiceDefaults\GridPulse.ServiceDefaults.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="GridPulse.UnitTests" />
+    <InternalsVisibleTo Include="GridPulse.IntegrationTests" />
+    <InternalsVisibleTo Include="GridPulse.Benchmarks" />
+  </ItemGroup>
 </Project>
