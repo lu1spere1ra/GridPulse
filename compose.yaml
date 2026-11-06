@@ -2,6 +2,7 @@ name: gridpulse
 
 # Every host port is in 5300-5399 (see docs/PLAN.md, section 6).
 # Scale the fleet with:  GRIDPULSE_METERS=5000 docker compose up
+# Load test (readings/s = meters / interval): see tools/loadtest/run.sh
 
 x-otel-env: &otel-env
   OTEL_EXPORTER_OTLP_ENDPOINT: http://prometheus:9090/api/v1/otlp
@@ -101,6 +102,8 @@ services:
       Mqtt__Port: "1883"
       Simulator__ApiBaseUrl: http://api:8080/
       Simulator__MeterCount: ${GRIDPULSE_METERS:-500}
+      Simulator__PublishInterval: ${GRIDPULSE_INTERVAL:-00:00:01}
+      Simulator__Connections: ${GRIDPULSE_CONNECTIONS:-1}
     depends_on: [api, ingestion]
 
   web:

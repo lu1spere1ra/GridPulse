@@ -28,9 +28,11 @@ The system has three very different data-access workloads:
 - **Dapper** for analytics. The SQL is TimescaleDB-specific (`time_bucket`, continuous aggregates,
   `first`/`last`), so it is clearer written as SQL than coaxed out of LINQ, and Dapper adds nothing
   per row beyond materialisation.
-- **Npgsql binary `COPY`** for telemetry, into a temporary staging table, then
-  `INSERT … ON CONFLICT DO NOTHING` into the hypertable. The primary key `(meter_id, time)` turns
-  redeliveries into no-ops.
+- **Npgsql binary `COPY`** for telemetry, **optimistically straight into the hypertable**. If the
+  primary key `(meter_id, time)` rejects the batch because it contains a redelivered reading, the
+  transaction rolls back and the batch is retried through a temporary staging table plus
+  `INSERT … ON CONFLICT DO NOTHING`. The result is the same either way, and the expensive path
+  only runs when a duplicate actually exists.
 
 The choice was measured, not assumed (`docs/benchmarks.md`, section 2):
 
@@ -40,6 +42,7 @@ The choice was measured, not assumed (`docs/benchmarks.md`, section 2):
 | Dapper `unnest` + `ON CONFLICT` | ~52,000 | 416 KB |
 | COPY → staging → `ON CONFLICT` | ~55,000 | 474 KB |
 | Raw COPY (not idempotent) | ~240,000 | 472 KB |
+| **Optimistic COPY, staging merge only on a duplicate (chosen)** | **~193,000** | 472 KB |
 
 ## Consequences
 
@@ -49,6 +52,8 @@ The choice was measured, not assumed (`docs/benchmarks.md`, section 2):
   - COPY: `CopyReadingBatchWriter`.
 - The `readings` table is still mapped in EF Core, so that migrations own its schema, but it is
   never written through EF Core.
-- The benchmark shows the remaining cost is the conflict-checking insert, not the transport.
-  Raw COPY is about 4× faster, so a fast path that tries raw COPY first and falls back to the
-  staging merge on a duplicate-key error is the next optimisation (section 3 of the benchmarks).
+- The first version always went through the staging merge, at about 55,000 rows/s. Benchmarks showed
+  the conflict-checking insert, not the transport, was the cost. The optimistic path made the writer
+  3.3× faster, and end to end it halved database CPU (`docs/benchmarks.md`, section 3).
+- **The trade-off:** a batch that does contain a duplicate pays for the copy twice. That only
+  happens around MQTT reconnects, so it is acceptable.
