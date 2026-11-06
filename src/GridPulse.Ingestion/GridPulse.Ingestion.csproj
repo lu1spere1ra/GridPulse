@@ -5,7 +5,6 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="GridPulse.UnitTests" />
-    <InternalsVisibleTo Include="GridPulse.IntegrationTests" />
     <InternalsVisibleTo Include="GridPulse.Benchmarks" />
   </ItemGroup>
 </Project>

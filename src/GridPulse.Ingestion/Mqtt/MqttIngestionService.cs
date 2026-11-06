@@ -30,12 +30,11 @@ public sealed class MqttIngestionService(
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
+        await base.StopAsync(cancellationToken);
         if (_client is not null)
         {
             await _client.DisposeAsync();
         }
-
-        await base.StopAsync(cancellationToken);
     }
 
     private Task SubscribeAsync(CancellationToken cancellationToken) =>

@@ -77,13 +77,22 @@ public sealed class ResilientMqttClient : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await _disposed.CancelAsync();
-        if (Client.IsConnected)
+        try
         {
-            await Client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build());
+            if (Client.IsConnected)
+            {
+                await Client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build());
+            }
+        }
+        catch (Exception ex)
+        {
+            // The connection may already be gone (broker restart, shutdown race); nothing to clean up.
+            _logger.LogDebug("Ignoring MQTT disconnect failure: {Message}", ex.Message);
         }
 
+        // _disposed is cancelled but deliberately not disposed: MQTTnet can still raise
+        // DisconnectedAsync after this point, and the handler reads the token.
         Client.Dispose();
-        _disposed.Dispose();
     }
 
     private async Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs e)
