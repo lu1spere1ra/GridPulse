@@ -17,17 +17,27 @@ public sealed class ResilientMqttClient : IAsyncDisposable
     private readonly ILogger _logger;
     private readonly CancellationTokenSource _disposed = new();
 
-    public ResilientMqttClient(MqttOptions options, string role, ILogger logger)
+    /// <param name="receiveMaximum">
+    /// MQTT 5 Receive Maximum: how many QoS 1 messages the broker may have in flight to us
+    /// before it waits for our PUBACKs. Consumers set it so that a slow handler slows the broker
+    /// down instead of filling MQTTnet's internal (unbounded) receive queue. 0 keeps the default.
+    /// </param>
+    public ResilientMqttClient(MqttOptions options, string role, ILogger logger, ushort receiveMaximum = 0)
     {
         _logger = logger;
         _endpoint = $"{options.Host}:{options.Port}";
-        _options = new MqttClientOptionsBuilder()
+        var builder = new MqttClientOptionsBuilder()
             .WithTcpServer(options.Host, options.Port)
             .WithClientId($"{options.ClientIdPrefix}-{role}-{Guid.NewGuid():N}")
             .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V500)
             .WithCleanStart()
-            .WithKeepAlivePeriod(TimeSpan.FromSeconds(15))
-            .Build();
+            .WithKeepAlivePeriod(TimeSpan.FromSeconds(15));
+        if (receiveMaximum > 0)
+        {
+            builder = builder.WithReceiveMaximum(receiveMaximum);
+        }
+
+        _options = builder.Build();
 
         Client = new MqttClientFactory().CreateMqttClient();
         Client.DisconnectedAsync += OnDisconnectedAsync;
