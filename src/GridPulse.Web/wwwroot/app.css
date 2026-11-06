@@ -77,3 +77,6 @@ h1:focus { outline: none; } /* FocusOnNavigate moves focus to the heading for sc
 .gp-alert-meta { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--gp-muted); white-space: nowrap; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+.gp-intro { max-width: 70ch; margin-bottom: 1.25rem; }
+.gp-form { background: #fff; border: 1px solid var(--gp-rule); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem; }
+.gp-form-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }

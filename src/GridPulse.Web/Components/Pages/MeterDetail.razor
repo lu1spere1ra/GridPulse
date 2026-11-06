@@ -19,7 +19,11 @@
         <p class="gp-hero-value" aria-live="polite">@(_latest is null ? "–" : Format.Power(_latest.PowerW))</p>
         <p class="gp-muted">@(string.Join(" · ", new[] { _meter?.Name, _meter?.Zone }.Where(s => !string.IsNullOrEmpty(s)))) @(_latest is null ? "Waiting for the next reading" : $"Last reading {Format.Time(_latest.Ts)}")</p>
     </header>
-    <LineChart Points="_live.ToList()" Height="220" Label="Live power of this meter, last 5 minutes" EmptyText="Waiting for live readings" />
+    <LineChart Points="_live.ToList()" Height="220" Threshold="_threshold" Label="Live power of this meter, last 5 minutes" EmptyText="Waiting for live readings" />
+    @if (_threshold is { } limit)
+    {
+        <p class="gp-muted">Dashed line: alert limit of @Format.Power(limit).</p>
+    }
 </section>
 
 <section aria-labelledby="history-heading" class="gp-section">
@@ -44,6 +48,7 @@
     private MeterDto? _meter;
     private MeterLatest? _latest;
     private Resolution? _resolution;
+    private double? _threshold;
     private bool _notFound;
     private int _hours = 1;
 
@@ -62,6 +67,10 @@
         Feed.MeterUpdated += OnMeterUpdated;
         await Feed.SubscribeMeterAsync(Id);
         await LoadHistoryAsync();
+
+        // The rule that applies to this meter: its own threshold rule if it has one, otherwise the fleet-wide one.
+        var thresholds = (await Api.GetAlertRulesAsync() ?? []).Where(r => r.Enabled && r.Type == AlertRuleType.Threshold).ToList();
+        _threshold = (thresholds.FirstOrDefault(r => r.MeterId == Id) ?? thresholds.FirstOrDefault(r => r.MeterId is null))?.ThresholdW;
     }
 
     private async Task SelectRangeAsync(int hours)

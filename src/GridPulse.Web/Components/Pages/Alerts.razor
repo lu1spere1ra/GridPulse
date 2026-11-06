@@ -1,0 +1,52 @@
+@page "/alerts"
+@implements IDisposable
+@inject GridPulseApiClient Api
+@inject ITelemetryFeed Feed
+
+<PageTitle>Alerts · GridPulse</PageTitle>
+
+<div class="gp-section-head">
+    <h1>Alerts</h1>
+    <MudChipSet T="string" SelectedValue="_filter" SelectedValueChanged="FilterAsync" CheckMark="false" SelectionMode="SelectionMode.SingleSelection" SelectedColor="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+        <MudChip T="string" Value="@("active")">Active</MudChip>
+        <MudChip T="string" Value="@("all")">All</MudChip>
+    </MudChipSet>
+</div>
+
+<AlertList Alerts="_alerts" OnAcknowledge="AcknowledgeAsync"
+           EmptyText="@(_filter == "active" ? "No active alerts. New alerts appear here as they are raised." : "No alerts have been raised yet.")" />
+
+@code {
+    private List<AlertDto> _alerts = [];
+    private string _filter = "active";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Feed.AlertChanged += OnAlertChanged;
+        await Feed.StartAsync();
+        await LoadAsync();
+    }
+
+    private async Task FilterAsync(string filter)
+    {
+        _filter = filter;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() =>
+        _alerts = await Api.GetAlertsAsync(_filter == "active" ? AlertState.Firing : null, 200) ?? [];
+
+    private async Task AcknowledgeAsync(long id)
+    {
+        await Api.AcknowledgeAlertAsync(id);
+        await LoadAsync();
+    }
+
+    private void OnAlertChanged(AlertNotification _) => InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    public void Dispose() => Feed.AlertChanged -= OnAlertChanged;
+}

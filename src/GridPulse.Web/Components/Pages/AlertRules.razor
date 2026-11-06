@@ -1,0 +1,170 @@
+@page "/alert-rules"
+@using System.Net.Http.Json
+@inject GridPulseApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Alert rules · GridPulse</PageTitle>
+
+<div class="gp-section-head">
+    <h1>Alert rules</h1>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartCreate">New rule</MudButton>
+</div>
+
+<p class="gp-muted gp-intro">
+    Threshold rules check every closed 1-minute window. Offline rules check how long a meter has been silent.
+    A rule for a specific meter replaces the fleet-wide rule of the same type for that meter.
+    Changes apply within 30 seconds.
+</p>
+
+@if (_editing is not null)
+{
+    <section class="gp-form" aria-labelledby="rule-form-heading">
+        <h2 id="rule-form-heading">@(_editingId is null ? "New rule" : "Edit rule")</h2>
+        <EditForm Model="_editing" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6"><MudTextField @bind-Value="_editing.Name" Label="Name" For="() => _editing.Name" /></MudItem>
+                <MudItem xs="12" md="3">
+                    <MudSelect @bind-Value="_editing.Type" Label="Type">
+                        <MudSelectItem Value="AlertRuleType.Threshold">Consumption above a limit</MudSelectItem>
+                        <MudSelectItem Value="AlertRuleType.Offline">Meter offline</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="3"><MudNumericField @bind-Value="_editing.MeterId" Label="Meter id (empty = all meters)" Min="1" /></MudItem>
+                @if (_editing.Type == AlertRuleType.Threshold)
+                {
+                    <MudItem xs="12" md="3"><MudNumericField @bind-Value="_editing.ThresholdKw" Label="Limit (kW)" Min="0.001" Step="0.5" For="() => _editing.ThresholdKw" /></MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudSelect @bind-Value="_editing.Aggregate" Label="Compare">
+                            <MudSelectItem Value="ThresholdAggregate.Average">1-minute average</MudSelectItem>
+                            <MudSelectItem Value="ThresholdAggregate.Maximum">1-minute peak</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                }
+                else
+                {
+                    <MudItem xs="12" md="3"><MudNumericField @bind-Value="_editing.OfflineMinutes" Label="Minutes without readings" Min="1" Max="1440" For="() => _editing.OfflineMinutes" /></MudItem>
+                }
+                <MudItem xs="12" md="3" Class="d-flex align-center"><MudSwitch @bind-Value="_editing.Enabled" Label="Enabled" Color="Color.Primary" /></MudItem>
+            </MudGrid>
+            @if (_serverError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_serverError</MudAlert>
+            }
+            <div class="gp-form-actions">
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary">@(_editingId is null ? "Create rule" : "Save rule")</MudButton>
+                <MudButton Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+            </div>
+        </EditForm>
+    </section>
+}
+
+<MudSimpleTable Dense="true" Hover="true" Elevation="0" Class="gp-table">
+    <thead><tr><th>Name</th><th>Condition</th><th>Applies to</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+        @foreach (var rule in _rules)
+        {
+            <tr>
+                <td>@rule.Name</td>
+                <td>@Describe(rule)</td>
+                <td>@(rule.MeterId is { } id ? $"Meter {id}" : "All meters")</td>
+                <td>@(rule.Enabled ? "Enabled" : "Disabled")</td>
+                <td class="num">
+                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => StartEdit(rule)">Edit</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="() => DeleteAsync(rule)">Delete</MudButton>
+                </td>
+            </tr>
+        }
+    </tbody>
+</MudSimpleTable>
+
+@code {
+    private List<AlertRuleDto> _rules = [];
+    private RuleForm? _editing;
+    private int? _editingId;
+    private string? _serverError;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() => _rules = await Api.GetAlertRulesAsync() ?? [];
+
+    private void StartCreate()
+    {
+        _editingId = null;
+        _serverError = null;
+        _editing = new RuleForm { Name = "", Type = AlertRuleType.Threshold, ThresholdKw = 7, OfflineMinutes = 5, Enabled = true };
+    }
+
+    private void StartEdit(AlertRuleDto rule)
+    {
+        _editingId = rule.Id;
+        _serverError = null;
+        _editing = new RuleForm
+        {
+            Name = rule.Name,
+            Type = rule.Type,
+            MeterId = rule.MeterId,
+            ThresholdKw = rule.ThresholdW / 1000,
+            Aggregate = rule.Aggregate,
+            OfflineMinutes = rule.OfflineMinutes,
+            Enabled = rule.Enabled,
+        };
+    }
+
+    private void Cancel() => _editing = null;
+
+    private async Task SaveAsync()
+    {
+        var request = _editing!.ToRequest();
+        using var response = _editingId is { } id ? await Api.UpdateAlertRuleAsync(id, request) : await Api.CreateAlertRuleAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblem>();
+            _serverError = problem?.Errors is { Count: > 0 } errors
+                ? string.Join(" ", errors.SelectMany(e => e.Value))
+                : $"The API rejected the rule ({(int)response.StatusCode}).";
+            return;
+        }
+
+        Snackbar.Add(_editingId is null ? "Rule created" : "Rule saved", Severity.Success);
+        _editing = null;
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(AlertRuleDto rule)
+    {
+        await Api.DeleteAlertRuleAsync(rule.Id);
+        Snackbar.Add($"Deleted \"{rule.Name}\"", Severity.Info);
+        await LoadAsync();
+    }
+
+    private static string Describe(AlertRuleDto rule) => rule.Type == AlertRuleType.Threshold
+        ? $"1-minute {(rule.Aggregate == ThresholdAggregate.Average ? "average" : "peak")} above {Format.Power(rule.ThresholdW ?? 0)}"
+        : $"No readings for {rule.OfflineMinutes} min";
+
+    private sealed record HttpValidationProblem(Dictionary<string, string[]>? Errors);
+
+    /// <summary>Form model: the UI talks kW, the API talks W.</summary>
+    private sealed class RuleForm
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Give the rule a name.")]
+        [System.ComponentModel.DataAnnotations.MaxLength(128)]
+        public string Name { get; set; } = "";
+
+        public AlertRuleType Type { get; set; }
+
+        public int? MeterId { get; set; }
+
+        public double? ThresholdKw { get; set; }
+
+        public ThresholdAggregate Aggregate { get; set; }
+
+        public int? OfflineMinutes { get; set; }
+
+        public bool Enabled { get; set; }
+
+        public AlertRuleRequest ToRequest() => new(
+            Name.Trim(), Type, MeterId, Type == AlertRuleType.Threshold && ThresholdKw is { } kw ? kw * 1000 : null,
+            Aggregate, Type == AlertRuleType.Offline ? OfflineMinutes : null, Enabled);
+    }
+}

@@ -30,6 +30,7 @@ public static class GridPulseTheme
         {
             Default = new DefaultTypography { FontFamily = ["IBM Plex Sans", "Segoe UI", "sans-serif"] },
             H1 = new H1Typography { FontFamily = ["IBM Plex Sans", "sans-serif"], FontWeight = "600" },
+            Button = new ButtonTypography { TextTransform = "none", FontWeight = "500" }, // sentence case, not shouting
         },
         LayoutProperties = new LayoutProperties { DefaultBorderRadius = "6px" },
     };
