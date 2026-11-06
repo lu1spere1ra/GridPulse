@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
@@ -6,10 +6,14 @@
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="bunit" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\GridPulse.Web\GridPulse.Web.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
     <Using Include="Shouldly" />
+    <Using Include="Bunit" />
   </ItemGroup>
 </Project>
