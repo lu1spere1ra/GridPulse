@@ -37,7 +37,28 @@ What this tells us:
 
 ## 2. Database writers (Phase 3)
 
-_Pending._
+`WriterBenchmarks` writes batches into the `readings` hypertable of a dedicated `gridpulse_bench`
+database. The TimescaleDB container runs on the **same 4-vCPU VM** as the benchmark, so client
+and server compete for CPU.
+
+| Writer | Idempotent | 1,000 rows | 5,000 rows | Rows/s (5,000-row batches) | Allocated (5,000 rows) |
+|---|:-:|---:|---:|---:|---:|
+| EF Core `AddRange` + `SaveChanges` (baseline) | ❌ | 118.4 ms | 555.8 ms | ~9,000 | 39.5 MB |
+| Dapper `INSERT … SELECT unnest(@arrays) ON CONFLICT DO NOTHING` | ✅ | 20.2 ms | 95.8 ms | ~52,000 | 416 KB |
+| Binary `COPY` → temp staging table → `INSERT … ON CONFLICT DO NOTHING` | ✅ | 22.4 ms | 90.7 ms | ~55,000 | 474 KB |
+| Raw binary `COPY` straight into the hypertable | ❌ | 5.2 ms | 20.8 ms | ~240,000 | 472 KB |
+
+What this tells us:
+
+- **EF Core is the wrong tool for bulk telemetry.** It is about 6× slower than the alternatives and
+  allocates about 100× more: it materialises an entity per row, tracks it and generates parameterised
+  multi-row INSERTs. It is still the right tool for CRUD and migrations (ADR-0004).
+- **The cost of idempotency is the `ON CONFLICT` insert path, not the network.** The `unnest` and
+  staging variants take almost the same time, even though one sends parameters and the other
+  streams binary COPY data. Raw COPY into the hypertable is about 4× faster because it uses
+  TimescaleDB's multi-row COPY path and does no per-row conflict handling.
+- **Next step:** make the common case (no duplicates) take the raw-COPY path, and fall back to the
+  staging merge only when a duplicate actually shows up. Measured in section 3.
 
 ## 3. Optimisations (Phase 9)
 
