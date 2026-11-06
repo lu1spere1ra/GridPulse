@@ -1,0 +1,17 @@
+# kubectl apply -k deploy/k8s
+# Override images for a registry and tag with:  kustomize edit set image gridpulse/api=myregistry.azurecr.io/gridpulse/api:<sha>
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: gridpulse
+resources:
+  - namespace.yaml
+  - config.yaml
+  - infrastructure.yaml
+  - migrator-job.yaml
+  - apps.yaml
+images:
+  - { name: gridpulse/api, newTag: latest }
+  - { name: gridpulse/ingestion, newTag: latest }
+  - { name: gridpulse/web, newTag: latest }
+  - { name: gridpulse/simulator, newTag: latest }
+  - { name: gridpulse/migrator, newTag: latest }

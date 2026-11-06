@@ -1,0 +1,137 @@
+# Exactly one replica: per-meter window state lives in memory (ADR-0002). Recreate, never surge.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingestion
+  namespace: gridpulse
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: ingestion }
+  template:
+    metadata:
+      labels: { app: ingestion }
+    spec:
+      containers:
+        - name: ingestion
+          image: gridpulse/ingestion
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: gridpulse-config }
+            - secretRef: { name: gridpulse-db }
+          readinessProbe:
+            httpGet: { path: /health/ready, port: 8080 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health/live, port: 8080 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 500m, memory: 256Mi }
+            limits: { memory: 1Gi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: gridpulse
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: api }
+  template:
+    metadata:
+      labels: { app: api }
+    spec:
+      containers:
+        - name: api
+          image: gridpulse/api
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: gridpulse-config }
+            - secretRef: { name: gridpulse-db }
+          readinessProbe:
+            httpGet: { path: /health/ready, port: 8080 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health/live, port: 8080 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { memory: 1Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: gridpulse
+spec:
+  selector: { app: api }
+  ports: [{ port: 80, targetPort: 8080 }]
+  sessionAffinity: ClientIP # SignalR / Blazor Server circuits must stay on one replica
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: gridpulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: web }
+  template:
+    metadata:
+      labels: { app: web }
+    spec:
+      containers:
+        - name: web
+          image: gridpulse/web
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: gridpulse-config }
+          env:
+            - { name: Api__BaseUrl, value: "http://api/" }
+          readinessProbe:
+            httpGet: { path: /health/ready, port: 8080 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health/live, port: 8080 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: gridpulse
+spec:
+  selector: { app: web }
+  ports: [{ port: 80, targetPort: 8080 }]
+  sessionAffinity: ClientIP # SignalR / Blazor Server circuits must stay on one replica
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulator
+  namespace: gridpulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: simulator }
+  template:
+    metadata:
+      labels: { app: simulator }
+    spec:
+      containers:
+        - name: simulator
+          image: gridpulse/simulator
+          envFrom:
+            - configMapRef: { name: gridpulse-config }
+          env:
+            - { name: Simulator__ApiBaseUrl, value: "http://api/" }
+            - { name: Simulator__MeterCount, value: "500" }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 1Gi }

@@ -1,0 +1,103 @@
+# Development-cluster infrastructure (kind, k3d, Docker Desktop). For production, point the
+# connection string at a managed PostgreSQL and remove the StatefulSet.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: timescaledb
+  namespace: gridpulse
+spec:
+  serviceName: timescaledb
+  replicas: 1
+  selector:
+    matchLabels: { app: timescaledb }
+  template:
+    metadata:
+      labels: { app: timescaledb }
+    spec:
+      containers:
+        - name: timescaledb
+          image: timescale/timescaledb:2.31.0-pg17
+          ports: [{ containerPort: 5432 }]
+          env:
+            - { name: POSTGRES_USER, value: gridpulse }
+            - { name: POSTGRES_DB, value: gridpulse }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: gridpulse-db, key: POSTGRES_PASSWORD } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "gridpulse", "-d", "gridpulse"] }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { memory: 2Gi }
+          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: 10Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: timescaledb
+  namespace: gridpulse
+spec:
+  selector: { app: timescaledb }
+  ports: [{ port: 5432, targetPort: 5432 }]
+---
+# Same settings as deploy/mosquitto/mosquitto.conf (kustomize cannot read files outside this folder).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+  namespace: gridpulse
+data:
+  mosquitto.conf: |
+    # Local development broker. Anonymous access is acceptable here only because
+    # the broker is reachable from the compose network and a host port in the dev range.
+    listener 1883
+    allow_anonymous true
+    persistence false
+    # Upper bound for messages queued per client while it applies backpressure (QoS 1).
+    max_queued_messages 200000
+    max_inflight_messages 1000
+    # Disable Nagle's algorithm: QoS 1 acknowledgements are tiny packets, and with Nagle + delayed ACK
+    # each round trip waited ~40 ms. Measured effect in docs/benchmarks.md (section 3).
+    set_tcp_nodelay true
+    log_type error
+    log_type warning
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: gridpulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: mosquitto }
+  template:
+    metadata:
+      labels: { app: mosquitto }
+    spec:
+      containers:
+        - name: mosquitto
+          image: eclipse-mosquitto:2.0.22
+          ports: [{ containerPort: 1883 }]
+          resources:
+            requests: { cpu: 100m, memory: 64Mi }
+            limits: { memory: 512Mi }
+          volumeMounts: [{ name: config, mountPath: /mosquitto/config }]
+      volumes:
+        - name: config
+          configMap: { name: mosquitto-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto
+  namespace: gridpulse
+spec:
+  selector: { app: mosquitto }
+  ports: [{ port: 1883, targetPort: 1883 }]

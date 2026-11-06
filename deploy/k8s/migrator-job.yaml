@@ -1,0 +1,19 @@
+# Run after each deployment:  kubectl -n gridpulse delete job migrator --ignore-not-found && kubectl apply -k deploy/k8s
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrator
+  namespace: gridpulse
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrator
+          image: gridpulse/migrator
+          envFrom: [{ secretRef: { name: gridpulse-db } }]
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
