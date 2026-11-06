@@ -18,10 +18,12 @@ public sealed class CopyReadingBatchWriterTests(CommunityDatabase community, Apa
         var writer = new CopyReadingBatchWriter(Db(edition).DataSource);
 
         (await writer.WriteAndCountAsync(batch, Ct)).ShouldBe(300);
+        writer.FallbackCount.ShouldBe(0, "a batch without duplicates takes the raw COPY path");
 
         // QoS 1 redelivery after a reconnect: the same readings plus one new reading.
         var redelivery = batch.Take(50).Append(new Reading(meters[0], T0.AddSeconds(100), 1, 100, 230)).ToList();
         (await writer.WriteAndCountAsync(redelivery, Ct)).ShouldBe(1);
+        writer.FallbackCount.ShouldBe(1, "a duplicate sends the batch through the staging merge");
 
         await using var connection = await Db(edition).DataSource.OpenConnectionAsync(Ct);
         var stored = await connection.ExecuteScalarAsync<long>(

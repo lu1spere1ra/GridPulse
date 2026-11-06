@@ -109,8 +109,40 @@ public class WriterBenchmarks
             });
     }
 
+    /// <summary>The first production writer: always COPY into a staging table, then merge.</summary>
     [Benchmark]
-    public Task CopyViaStagingOnConflict() => _copyWithStaging.WriteAsync(NextBatch(), CancellationToken.None);
+    public async Task CopyViaStagingOnConflict()
+    {
+        var batch = NextBatch();
+        await using var connection = await _dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        await connection.ExecuteAsync(
+            "CREATE TEMP TABLE IF NOT EXISTS readings_staging (time timestamptz NOT NULL, meter_id int NOT NULL, power_w real NOT NULL, energy_wh bigint NOT NULL, voltage_v real NOT NULL) ON COMMIT DELETE ROWS",
+            transaction: transaction);
+        await using (var importer = await connection.BeginBinaryImportAsync("COPY readings_staging (time, meter_id, power_w, energy_wh, voltage_v) FROM STDIN (FORMAT BINARY)"))
+        {
+            foreach (var r in batch)
+            {
+                await importer.StartRowAsync();
+                await importer.WriteAsync(r.Timestamp, NpgsqlDbType.TimestampTz);
+                await importer.WriteAsync(r.MeterId, NpgsqlDbType.Integer);
+                await importer.WriteAsync(r.PowerW, NpgsqlDbType.Real);
+                await importer.WriteAsync(r.EnergyWh, NpgsqlDbType.Bigint);
+                await importer.WriteAsync(r.VoltageV, NpgsqlDbType.Real);
+            }
+
+            await importer.CompleteAsync();
+        }
+
+        await connection.ExecuteAsync(
+            "INSERT INTO readings SELECT time, meter_id, power_w, energy_wh, voltage_v FROM readings_staging ON CONFLICT DO NOTHING",
+            transaction: transaction);
+        await transaction.CommitAsync();
+    }
+
+    /// <summary>Current production writer: raw COPY, staging merge only when a duplicate is found.</summary>
+    [Benchmark]
+    public Task OptimisticCopyWithFallback() => _copyWithStaging.WriteAsync(NextBatch(), CancellationToken.None);
 
     /// <summary>Reference point only: fastest, but a single duplicate fails the whole batch.</summary>
     [Benchmark]
