@@ -7,7 +7,7 @@ namespace GridPulse.IntegrationTests.Api;
 
 /// <summary>The real API host wired to the test TimescaleDB and Mosquitto containers.</summary>
 public sealed class ApiFactory(CommunityDatabase database, MosquittoBroker broker, IReadOnlyDictionary<string, string?>? settings = null)
-    : WebApplicationFactory<Program>
+    : WebApplicationFactory<GridPulse.Api.ApiAssemblyMarker>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

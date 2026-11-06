@@ -63,5 +63,8 @@ app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();
 
 app.Run();
 
-/// <summary>Entry point marker for <c>WebApplicationFactory</c> in integration tests.</summary>
-public partial class Program;
+namespace GridPulse.Api
+{
+    /// <summary>Marks the API assembly for <c>WebApplicationFactory</c> in integration tests.</summary>
+    public sealed class ApiAssemblyMarker;
+}

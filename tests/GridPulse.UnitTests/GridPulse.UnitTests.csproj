@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\src\GridPulse.Core\GridPulse.Core.csproj" />
     <ProjectReference Include="..\..\src\GridPulse.Simulator\GridPulse.Simulator.csproj" />
     <ProjectReference Include="..\..\src\GridPulse.Ingestion\GridPulse.Ingestion.csproj" />
+    <ProjectReference Include="..\..\src\GridPulse.Reports\GridPulse.Reports.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
