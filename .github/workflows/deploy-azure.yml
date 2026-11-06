@@ -1,0 +1,113 @@
+name: deploy-azure
+
+# Manual only. Setup (identity, federated credential, variables, secret): docs/deploy-azure.md
+on:
+  workflow_dispatch:
+    inputs:
+      environmentName:
+        description: Short environment name used in resource names
+        default: demo
+        required: true
+
+permissions:
+  id-token: write # OIDC: GitHub issues a short-lived token that Azure trusts; no stored Azure credentials
+  contents: read
+
+concurrency:
+  group: deploy-azure
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production # protect with required reviewers in the repository settings
+    timeout-minutes: 60
+    env:
+      RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      IMAGE_TAG: ${{ github.sha }}
+      ENVIRONMENT_NAME: ${{ inputs.environmentName }}
+      POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Preview infrastructure changes (what-if)
+        run: |
+          az deployment group what-if --resource-group "$RESOURCE_GROUP" \
+            --template-file deploy/bicep/main.bicep --parameters deploy/bicep/main.bicepparam \
+            --parameters environmentName="$ENVIRONMENT_NAME" deployApps=false
+
+      - name: Stage 1 - registry, database, storage, identity
+        id: base
+        run: |
+          outputs=$(az deployment group create --resource-group "$RESOURCE_GROUP" --name "gridpulse-base-$GITHUB_RUN_ID" \
+            --template-file deploy/bicep/main.bicep --parameters deploy/bicep/main.bicepparam \
+            --parameters environmentName="$ENVIRONMENT_NAME" deployApps=false \
+            --query properties.outputs -o json)
+          echo "registry=$(jq -r .registryName.value <<<"$outputs")" >> "$GITHUB_OUTPUT"
+          echo "postgres=$(jq -r .postgresServerName.value <<<"$outputs")" >> "$GITHUB_OUTPUT"
+
+      - name: Restart PostgreSQL if TimescaleDB preload is pending
+        run: |
+          pending=$(az postgres flexible-server parameter show --resource-group "$RESOURCE_GROUP" \
+            --server-name "${{ steps.base.outputs.postgres }}" --name shared_preload_libraries --query isConfigPendingRestart -o tsv)
+          if [ "$pending" = "true" ]; then
+            az postgres flexible-server restart --resource-group "$RESOURCE_GROUP" --name "${{ steps.base.outputs.postgres }}"
+          fi
+
+      - name: Stage 2 - build images in the registry (ACR Tasks, no Docker login needed)
+        run: |
+          for project in Api Ingestion Simulator Web Migrator; do
+            name=$(echo "$project" | tr '[:upper:]' '[:lower:]')
+            az acr build --registry "${{ steps.base.outputs.registry }}" --image "gridpulse/$name:$IMAGE_TAG" \
+              --build-arg PROJECT="GridPulse.$project" --no-logs .
+          done
+          az acr build --registry "${{ steps.base.outputs.registry }}" --image "gridpulse/reports:$IMAGE_TAG" \
+            --file src/GridPulse.Reports/Dockerfile --no-logs .
+
+      - name: Stage 3 - Container Apps
+        id: apps
+        run: |
+          outputs=$(az deployment group create --resource-group "$RESOURCE_GROUP" --name "gridpulse-apps-$GITHUB_RUN_ID" \
+            --template-file deploy/bicep/main.bicep --parameters deploy/bicep/main.bicepparam \
+            --parameters environmentName="$ENVIRONMENT_NAME" deployApps=true imageTag="$IMAGE_TAG" \
+            --query properties.outputs -o json)
+          echo "api=$(jq -r .apiUrl.value <<<"$outputs")" >> "$GITHUB_OUTPUT"
+          echo "web=$(jq -r .webUrl.value <<<"$outputs")" >> "$GITHUB_OUTPUT"
+          echo "job=$(jq -r .migratorJobName.value <<<"$outputs")" >> "$GITHUB_OUTPUT"
+
+      - name: Run database migrations (Container Apps Job)
+        run: |
+          execution=$(az containerapp job start --resource-group "$RESOURCE_GROUP" --name "${{ steps.apps.outputs.job }}" --query name -o tsv)
+          for _ in $(seq 1 60); do
+            status=$(az containerapp job execution show --resource-group "$RESOURCE_GROUP" \
+              --name "${{ steps.apps.outputs.job }}" --job-execution-name "$execution" --query properties.status -o tsv)
+            echo "Migrator: $status"
+            [ "$status" = "Succeeded" ] && exit 0
+            [ "$status" = "Failed" ] && exit 1
+            sleep 10
+          done
+          exit 1
+
+      - name: Smoke test
+        run: |
+          for _ in $(seq 1 30); do
+            curl -fsS "${{ steps.apps.outputs.api }}/health/ready" && exit 0
+            sleep 10
+          done
+          exit 1
+
+      - name: Summary
+        run: |
+          {
+            echo "### GridPulse deployed"
+            echo "- Dashboard: ${{ steps.apps.outputs.web }}"
+            echo "- API: ${{ steps.apps.outputs.api }}/scalar"
+            echo "- Image tag: \`$IMAGE_TAG\`"
+          } >> "$GITHUB_STEP_SUMMARY"
