@@ -31,3 +31,28 @@ jobs:
 
       - name: Integration tests (Testcontainers)
         run: dotnet test --project tests/GridPulse.IntegrationTests -c Release --no-build
+
+  infrastructure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Bicep build and lint
+        run: |
+          az bicep install
+          az bicep build --file deploy/bicep/main.bicep --stdout > /dev/null
+          az bicep lint --file deploy/bicep/main.bicep
+
+      - name: Kubernetes manifests (kubeconform)
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz | tar xz kubeconform
+          ./kubeconform -strict -summary deploy/k8s/namespace.yaml deploy/k8s/config.yaml deploy/k8s/infrastructure.yaml deploy/k8s/migrator-job.yaml deploy/k8s/apps.yaml
+
+      - name: Compose uses only host ports 5300-5399
+        run: |
+          ports=$(grep -oE '"[0-9]+:[0-9]+"' compose.yaml | tr -d '"' | cut -d: -f1)
+          for p in $ports; do
+            if [ "$p" -lt 5300 ] || [ "$p" -gt 5399 ]; then echo "Host port $p is outside 5300-5399"; exit 1; fi
+          done
+          echo "Host ports: $(echo $ports | tr '\n' ' ')"
