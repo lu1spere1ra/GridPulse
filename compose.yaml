@@ -65,6 +65,27 @@ services:
     image: axllent/mailpit:v1.33.0
     ports: ["5340:8025"] # web UI; SMTP (1025) stays on the compose network
 
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.35.0
+    command: ["azurite-blob", "--blobHost", "0.0.0.0", "--skipApiVersionCheck"]
+    ports: ["5350:10000"] # blob endpoint, e.g. for Azure Storage Explorer
+
+  reports:
+    build: { context: ., dockerfile: src/GridPulse.Reports/Dockerfile }
+    image: gridpulse/reports:local
+    environment:
+      AzureWebJobsStorage: &azurite DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+      ReportStorage__ConnectionString: *azurite
+      ConnectionStrings__GridPulse: Host=db;Port=5432;Database=gridpulse;Username=gridpulse;Password=gridpulse
+      AZURE_FUNCTIONS_ENVIRONMENT: Development
+      # Development-only function keys from a file (see deploy/functions/README.md).
+      AzureWebJobsSecretStorageType: files
+    volumes: [./deploy/functions/secrets:/azure-functions-host/Secrets:ro]
+    ports: ["5360:80"]
+    depends_on:
+      azurite: { condition: service_started }
+      migrator: { condition: service_completed_successfully }
+
   simulator:
     build: { context: ., args: { PROJECT: GridPulse.Simulator } }
     image: gridpulse/simulator:local
