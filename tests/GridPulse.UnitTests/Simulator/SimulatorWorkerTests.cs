@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using GridPulse.Core.Contracts;
 using GridPulse.Simulator;
+using GridPulse.UnitTests.Fakes;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
@@ -56,14 +57,5 @@ public sealed class SimulatorWorkerTests
 
         publisher.Published.Select(r => r.MeterId).Distinct().Count().ShouldBe(50);
         publisher.Published.Count.ShouldBe(50);
-    }
-
-    private sealed class TestMeterFactory : System.Diagnostics.Metrics.IMeterFactory
-    {
-        public System.Diagnostics.Metrics.Meter Create(System.Diagnostics.Metrics.MeterOptions options) => new(options);
-
-        public void Dispose()
-        {
-        }
     }
 }
