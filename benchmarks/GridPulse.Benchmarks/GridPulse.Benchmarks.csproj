@@ -2,9 +2,11 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <Optimize>true</Optimize>
+    <!-- BenchmarkDotNet generates code that trips some analyzers; benchmarks are not production code. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
-    <ProjectReference Include="..\..\src\GridPulse.Core\GridPulse.Core.csproj" />
+    <ProjectReference Include="..\..\src\GridPulse.Ingestion\GridPulse.Ingestion.csproj" />
   </ItemGroup>
 </Project>
