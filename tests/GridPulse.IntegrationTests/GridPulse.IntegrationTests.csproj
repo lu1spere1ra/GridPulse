@@ -5,8 +5,15 @@
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Shouldly" />
+    <PackageReference Include="Testcontainers" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\GridPulse.Infrastructure\GridPulse.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\GridPulse.Ingestion\GridPulse.Ingestion.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
