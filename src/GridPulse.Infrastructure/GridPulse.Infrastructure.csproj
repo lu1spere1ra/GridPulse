@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
+  <ItemGroup>
+    <PackageReference Include="MQTTnet" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\GridPulse.Core\GridPulse.Core.csproj" />
   </ItemGroup>
