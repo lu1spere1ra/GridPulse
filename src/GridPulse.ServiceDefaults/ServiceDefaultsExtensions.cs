@@ -32,6 +32,7 @@ public static class ServiceDefaultsExtensions
                 // The default OTel buckets (0, 5, 10, 25… seconds) put every sub-second value in the
                 // first bucket, which makes percentiles meaningless. These match what we measure.
                 .AddView("gridpulse.ingestion.latency", SecondsBuckets([0.01, 0.025, 0.05, 0.1, 0.25, 0.4, 0.5, 0.75, 1, 1.5, 2.5, 5, 10]))
+                .AddView("gridpulse.simulator.slice.duration", SecondsBuckets([0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1]))
                 .AddView("gridpulse.ingestion.batch.duration", SecondsBuckets([0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5])));
 
         // Export only when an OTLP endpoint is configured (compose sets it; tests do not).

@@ -12,6 +12,7 @@ public sealed class SimulatorWorker : BackgroundService
     private readonly ILogger<SimulatorWorker> _logger;
     private readonly Counter<long> _published;
     private readonly Counter<long> _failed;
+    private readonly Histogram<double> _sliceDuration;
 
     public SimulatorWorker(
         IOptions<SimulatorOptions> options,
@@ -31,6 +32,7 @@ public sealed class SimulatorWorker : BackgroundService
         var meter = meterFactory.Create("GridPulse.Simulator");
         _published = meter.CreateCounter<long>("gridpulse.simulator.readings.published", "{reading}");
         _failed = meter.CreateCounter<long>("gridpulse.simulator.readings.failed", "{reading}");
+        _sliceDuration = meter.CreateHistogram<double>("gridpulse.simulator.slice.duration", "s", "Time to publish one slice, including the QoS 1 acknowledgements");
     }
 
     public MeterFleet Fleet { get; }
@@ -60,6 +62,7 @@ public sealed class SimulatorWorker : BackgroundService
     internal async Task PublishSliceAsync(long tick, List<Task> tasks, CancellationToken cancellationToken)
     {
         var now = _time.GetUtcNow();
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
         tasks.Clear();
         foreach (var meter in Fleet.Slice(tick))
         {
@@ -73,6 +76,7 @@ public sealed class SimulatorWorker : BackgroundService
         {
             await Task.WhenAll(tasks);
             _published.Add(tasks.Count);
+            _sliceDuration.Record(System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalSeconds);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

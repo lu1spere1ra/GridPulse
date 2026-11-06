@@ -30,6 +30,14 @@ public sealed class SimulatorOptions
     [Range(0, 1)]
     public double OfflineProbability { get; set; } = 0.00002;
 
+    /// <summary>
+    /// MQTT connections to publish over. One connection tops out at ~12,000 QoS 1 messages/s on the
+    /// reference machine (PUBACK round trips), so load tests above that need more. Each meter
+    /// always uses the same connection, which keeps its readings in order.
+    /// </summary>
+    [Range(1, 64)]
+    public int Connections { get; set; } = 1;
+
     /// <summary>Base URL of the API, used to register the simulated meters at startup.</summary>
     public Uri? ApiBaseUrl { get; set; }
 }

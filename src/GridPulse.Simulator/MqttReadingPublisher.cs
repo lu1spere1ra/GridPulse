@@ -8,15 +8,21 @@ using MQTTnet.Protocol;
 namespace GridPulse.Simulator;
 
 /// <summary>
-/// Publishes every meter's readings over one shared MQTT connection (QoS 1).
-/// Real meters each hold their own connection; sharing one is a simulation shortcut (ADR-0003).
+/// Publishes readings over a small pool of MQTT connections (QoS 1). Real meters each hold their own
+/// connection; pooling is a simulation shortcut (ADR-0003). A meter is pinned to one connection so
+/// its readings reach the broker, and therefore ingestion, in order.
 /// </summary>
-public sealed class MqttReadingPublisher(IOptions<MqttOptions> options, ILogger<MqttReadingPublisher> logger)
-    : IReadingPublisher, IAsyncDisposable
+public sealed class MqttReadingPublisher(
+    IOptions<MqttOptions> mqttOptions,
+    IOptions<SimulatorOptions> simulatorOptions,
+    ILogger<MqttReadingPublisher> logger) : IReadingPublisher, IAsyncDisposable
 {
-    private readonly ResilientMqttClient _client = new(options.Value, "simulator", logger);
+    private readonly ResilientMqttClient[] _clients = Enumerable.Range(0, simulatorOptions.Value.Connections)
+        .Select(i => new ResilientMqttClient(mqttOptions.Value, $"simulator-{i}", logger))
+        .ToArray();
 
-    public Task ConnectAsync(CancellationToken cancellationToken) => _client.ConnectAsync(cancellationToken);
+    public Task ConnectAsync(CancellationToken cancellationToken) =>
+        Task.WhenAll(_clients.Select(c => c.ConnectAsync(cancellationToken)));
 
     public async Task PublishAsync(ReadingMessage reading, CancellationToken cancellationToken)
     {
@@ -26,8 +32,18 @@ public sealed class MqttReadingPublisher(IOptions<MqttOptions> options, ILogger<
             .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
             .Build();
 
-        await _client.Client.PublishAsync(message, cancellationToken);
+        await ClientFor(reading.MeterId).Client.PublishAsync(message, cancellationToken);
     }
 
-    public ValueTask DisposeAsync() => _client.DisposeAsync();
+    public async ValueTask DisposeAsync()
+    {
+        foreach (var client in _clients)
+        {
+            await client.DisposeAsync();
+        }
+    }
+
+    // string.GetHashCode is randomised per process but stable within it, which is all that ordering needs.
+    private ResilientMqttClient ClientFor(string serial) =>
+        _clients[(int)((uint)serial.GetHashCode() % (uint)_clients.Length)];
 }
