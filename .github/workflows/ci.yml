@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore GridPulse.slnx
+
+      - name: Build
+        run: dotnet build GridPulse.slnx --no-restore -c Release
+
+      - name: Unit and component tests
+        run: |
+          dotnet test tests/GridPulse.UnitTests -c Release --no-build
+          dotnet test tests/GridPulse.Web.Tests -c Release --no-build
+
+      - name: Integration tests (Testcontainers)
+        run: dotnet test tests/GridPulse.IntegrationTests -c Release --no-build
