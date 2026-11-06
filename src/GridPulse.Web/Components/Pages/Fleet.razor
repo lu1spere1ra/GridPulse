@@ -1,0 +1,106 @@
+@page "/"
+@implements IAsyncDisposable
+@inject ITelemetryFeed Feed
+@inject GridPulseApiClient Api
+@inject TimeProvider Time
+
+<PageTitle>Fleet · GridPulse</PageTitle>
+
+<section class="gp-hero" aria-labelledby="fleet-heading">
+    <header class="gp-hero-head">
+        <h1 id="fleet-heading">Fleet load</h1>
+        <p class="gp-hero-value" aria-live="polite">@(_fleet is null ? "–" : Format.Power(_fleet.TotalPowerW))</p>
+        <p class="gp-muted">Last 15 minutes · @(_fleet is null ? "waiting for the first snapshot" : $"updated {Format.Time(_fleet.Ts)}")</p>
+    </header>
+    <LineChart Points="_series.ToList()" Height="260" Label="Total fleet power, last 15 minutes" />
+    <FleetStatusStrip Snapshot="_fleet" ActiveAlerts="_alerts.Count" />
+</section>
+
+<div class="gp-columns">
+    <section aria-labelledby="alerts-heading">
+        <h2 id="alerts-heading">Active alerts</h2>
+        <AlertList Alerts="_alerts" OnAcknowledge="AcknowledgeAsync" EmptyText="No active alerts. Spikes and offline meters show up here." />
+    </section>
+    <section aria-labelledby="top-heading">
+        <h2 id="top-heading">Highest consumption today</h2>
+        @if (_top.Count == 0)
+        {
+            <p class="gp-muted">No consumption recorded yet today.</p>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true" Elevation="0" Class="gp-table">
+                <thead><tr><th>Meter</th><th class="num">Energy</th><th class="num">Peak</th></tr></thead>
+                <tbody>
+                    @foreach (var consumer in _top)
+                    {
+                        <tr>
+                            <td><a href="meters/@consumer.MeterId">@consumer.Serial</a></td>
+                            <td class="num">@Format.Number(consumer.EnergyKwh, "N2") kWh</td>
+                            <td class="num">@Format.Power(consumer.PeakPowerW)</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </section>
+</div>
+
+@code {
+    private readonly RingBuffer<ChartPoint> _series = new(900);
+    private List<AlertDto> _alerts = [];
+    private List<TopConsumer> _top = [];
+    private FleetSnapshot? _fleet;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Feed.FleetUpdated += OnFleetUpdated;
+        Feed.AlertChanged += OnAlertChanged;
+        await Feed.StartAsync();
+        _fleet = Feed.LastFleet;
+
+        var now = Time.GetUtcNow();
+        try
+        {
+            // Backfill the chart with minute buckets so it is not empty on load; live points follow.
+            var history = await Api.GetFleetAsync(now.AddMinutes(-15), now);
+            foreach (var point in history?.Series ?? [])
+            {
+                _series.Add(new ChartPoint(point.Ts, point.TotalPowerW));
+            }
+
+            _alerts = await Api.GetAlertsAsync(AlertState.Firing) ?? [];
+            _top = await Api.GetTopConsumersAsync(new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero), now, 5) ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            // The connection banner already tells the operator; live data will fill in.
+        }
+    }
+
+    private void OnFleetUpdated(FleetSnapshot snapshot) => InvokeAsync(() =>
+    {
+        _fleet = snapshot;
+        _series.Add(new ChartPoint(snapshot.Ts, snapshot.TotalPowerW));
+        StateHasChanged();
+    });
+
+    private void OnAlertChanged(AlertNotification alert) => InvokeAsync(async () =>
+    {
+        _alerts = await Api.GetAlertsAsync(AlertState.Firing) ?? _alerts;
+        StateHasChanged();
+    });
+
+    private async Task AcknowledgeAsync(long id)
+    {
+        await Api.AcknowledgeAlertAsync(id);
+        _alerts = await Api.GetAlertsAsync(AlertState.Firing) ?? _alerts;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        Feed.FleetUpdated -= OnFleetUpdated;
+        Feed.AlertChanged -= OnAlertChanged;
+        return ValueTask.CompletedTask;
+    }
+}

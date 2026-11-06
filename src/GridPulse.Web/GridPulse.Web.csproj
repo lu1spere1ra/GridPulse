@@ -3,6 +3,10 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="MudBlazor" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\GridPulse.Core\GridPulse.Core.csproj" />
     <ProjectReference Include="..\GridPulse.ServiceDefaults\GridPulse.ServiceDefaults.csproj" />
   </ItemGroup>

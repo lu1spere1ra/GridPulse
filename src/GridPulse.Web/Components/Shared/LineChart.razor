@@ -1,0 +1,99 @@
+@using System.Globalization
+@* A deliberately small SVG time-series chart: one polyline, horizontal grid, optional threshold.
+   Re-rendered by Blazor's diffing (no JS interop), cheap enough at one update per second. *@
+
+<figure class="gp-chart" style="--gp-series: @Color">
+    @if (Points.Count < 2)
+    {
+        <div class="gp-chart-empty" style="height:@(Height)px">@EmptyText</div>
+    }
+    else
+    {
+        <svg viewBox="0 0 @Width @Height" preserveAspectRatio="none" role="img" aria-label="@Label" style="height:@(Height)px">
+            @foreach (var tick in _yTicks)
+            {
+                <line class="gp-grid" x1="@Pad" x2="@Width" y1="@F(tick.Y)" y2="@F(tick.Y)" />
+            }
+            @if (Threshold is { } threshold && threshold <= _yMax)
+            {
+                <line class="gp-threshold" x1="@Pad" x2="@Width" y1="@F(Y(threshold))" y2="@F(Y(threshold))" />
+            }
+            <polyline class="gp-line" points="@_polyline" />
+        </svg>
+        <div class="gp-axis-y" style="height:@(Height)px">
+            @foreach (var tick in _yTicks)
+            {
+                <span style="top:@F(tick.Y / Height * 100)%">@Format.Power(tick.Value)</span>
+            }
+        </div>
+        <figcaption class="gp-axis-x">
+            <span>@Format.Time(Points[0].Ts)</span>
+            <span>@Format.Time(Points[^1].Ts)</span>
+        </figcaption>
+    }
+</figure>
+
+@code {
+    private const double Width = 1000;
+    private const double Pad = 0;
+    private string _polyline = string.Empty;
+    private double _yMax;
+    private (double Value, double Y)[] _yTicks = [];
+
+    [Parameter, EditorRequired] public IReadOnlyList<ChartPoint> Points { get; set; } = [];
+
+    [Parameter] public double Height { get; set; } = 220;
+
+    [Parameter] public string Color { get; set; } = "var(--gp-energy)";
+
+    [Parameter] public double? Threshold { get; set; }
+
+    [Parameter] public string Label { get; set; } = "Power over time";
+
+    [Parameter] public string EmptyText { get; set; } = "Waiting for data";
+
+    /// <summary>Number of points actually drawn; exposed for tests.</summary>
+    public int RenderedPoints { get; private set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Points.Count < 2)
+        {
+            RenderedPoints = 0;
+            return;
+        }
+
+        var from = Points[0].Ts;
+        var span = Math.Max(1, (Points[^1].Ts - from).TotalSeconds);
+        _yMax = NiceCeiling(Math.Max(Points.Max(p => p.Value), Threshold ?? 0) * 1.1);
+        _yTicks = Enumerable.Range(0, 5).Select(i => _yMax * i / 4).Select(v => (v, Y(v))).ToArray();
+
+        var builder = new System.Text.StringBuilder(Points.Count * 14);
+        foreach (var point in Points)
+        {
+            var x = Pad + ((point.Ts - from).TotalSeconds / span * (Width - Pad));
+            builder.Append(F(x)).Append(',').Append(F(Y(point.Value))).Append(' ');
+        }
+
+        _polyline = builder.ToString();
+        RenderedPoints = Points.Count;
+    }
+
+    private double Y(double value) => Height - (value / (_yMax <= 0 ? 1 : _yMax) * (Height - 8)) - 4;
+
+    private static string F(double value) => value.ToString("0.#", CultureInfo.InvariantCulture);
+
+    /// <summary>Rounds the axis maximum up to 1, 2 or 5 × 10ⁿ so grid labels are readable.</summary>
+    private static double NiceCeiling(double value)
+    {
+        if (value <= 0)
+        {
+            return 1;
+        }
+
+        var magnitude = Math.Pow(10, Math.Floor(Math.Log10(value)));
+        var normalized = value / magnitude;
+        var nice = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+        return nice * magnitude;
+    }
+}

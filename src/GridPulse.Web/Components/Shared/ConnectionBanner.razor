@@ -1,0 +1,17 @@
+@implements IDisposable
+@inject ITelemetryFeed Feed
+
+@if (Feed.Status is FeedStatus.Reconnecting or FeedStatus.Disconnected)
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-4">
+        Live data is paused: reconnecting to the GridPulse API. Values shown may be out of date.
+    </MudAlert>
+}
+
+@code {
+    protected override void OnInitialized() => Feed.StatusChanged += OnStatusChanged;
+
+    private void OnStatusChanged(FeedStatus _) => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Feed.StatusChanged -= OnStatusChanged;
+}

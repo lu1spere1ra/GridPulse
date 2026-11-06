@@ -1,0 +1,40 @@
+@page "/meters"
+@inject GridPulseApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Meters · GridPulse</PageTitle>
+
+<h1>Meters</h1>
+
+<MudDataGrid T="MeterDto" ServerData="LoadAsync" @ref="_grid" Dense="true" Hover="true" Elevation="0" Class="gp-table"
+             RowClick="@(e => Navigation.NavigateTo($"meters/{e.Item.Id}"))" RowStyle="cursor:pointer">
+    <ToolBarContent>
+        <MudTextField T="string" Value="_search" ValueChanged="SearchAsync" DebounceInterval="300" Placeholder="Search by serial, name or zone"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" Clearable="true" />
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="m => m.Serial" Title="Serial" Sortable="false" />
+        <PropertyColumn Property="m => m.Name" Title="Name" Sortable="false" />
+        <PropertyColumn Property="m => m.Zone" Title="Zone" Sortable="false" />
+        <PropertyColumn Property="m => m.CreatedAt" Title="Registered" Format="yyyy-MM-dd HH:mm" Sortable="false" />
+    </Columns>
+    <NoRecordsContent>No meters match. Start the simulator to register a fleet.</NoRecordsContent>
+    <PagerContent><MudDataGridPager T="MeterDto" PageSizeOptions="[25, 50, 100]" /></PagerContent>
+</MudDataGrid>
+
+@code {
+    private MudDataGrid<MeterDto> _grid = null!;
+    private string? _search;
+
+    private async Task<GridData<MeterDto>> LoadAsync(GridState<MeterDto> state, CancellationToken cancellationToken)
+    {
+        var page = await Api.GetMetersAsync(state.Page + 1, state.PageSize, _search, cancellationToken);
+        return new GridData<MeterDto> { Items = page?.Items ?? [], TotalItems = page?.TotalCount ?? 0 };
+    }
+
+    private async Task SearchAsync(string? search)
+    {
+        _search = search;
+        await _grid.ReloadServerData();
+    }
+}

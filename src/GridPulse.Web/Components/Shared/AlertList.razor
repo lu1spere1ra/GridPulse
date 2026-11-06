@@ -1,0 +1,39 @@
+@inject TimeProvider Time
+
+@if (Alerts.Count == 0)
+{
+    <p class="gp-muted">@EmptyText</p>
+}
+else
+{
+    <ul class="gp-alerts">
+        @foreach (var alert in Alerts)
+        {
+            <li class="gp-alert-item @(alert.State == AlertState.Firing ? "is-firing" : "is-resolved")">
+                <div class="gp-alert-main">
+                    <a href="meters/@alert.MeterId">@alert.MeterSerial</a>
+                    <span>@alert.Message</span>
+                </div>
+                <div class="gp-alert-meta">
+                    <span title="@alert.RaisedAt.ToString("u")">@(alert.State == AlertState.Firing ? "Raised" : "Resolved") @Format.Ago(alert.ResolvedAt ?? alert.RaisedAt, Time.GetUtcNow())</span>
+                    @if (OnAcknowledge.HasDelegate && alert.AcknowledgedAt is null)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => OnAcknowledge.InvokeAsync(alert.Id)">Acknowledge</MudButton>
+                    }
+                    else if (alert.AcknowledgedAt is not null)
+                    {
+                        <span class="gp-muted">Acknowledged</span>
+                    }
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<AlertDto> Alerts { get; set; } = [];
+
+    [Parameter] public EventCallback<long> OnAcknowledge { get; set; }
+
+    [Parameter] public string EmptyText { get; set; } = "No active alerts.";
+}

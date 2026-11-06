@@ -1,0 +1,13 @@
+@* One quiet line of fleet health under the load chart. *@
+<dl class="gp-strip" aria-label="Fleet status">
+    <div><dt>Meters online</dt><dd>@(Snapshot is null ? "–" : Format.Number(Snapshot.OnlineMeters))</dd></div>
+    <div class="@(Snapshot?.OfflineMeters > 0 ? "gp-warn" : null)"><dt>Offline</dt><dd>@(Snapshot is null ? "–" : Format.Number(Snapshot.OfflineMeters))</dd></div>
+    <div><dt>Readings per second</dt><dd>@(Snapshot is null ? "–" : Format.Number(Snapshot.ReadingsPerSecond, "N0"))</dd></div>
+    <div class="@(ActiveAlerts > 0 ? "gp-alert" : null)"><dt>Active alerts</dt><dd>@Format.Number(ActiveAlerts)</dd></div>
+</dl>
+
+@code {
+    [Parameter] public FleetSnapshot? Snapshot { get; set; }
+
+    [Parameter] public int ActiveAlerts { get; set; }
+}

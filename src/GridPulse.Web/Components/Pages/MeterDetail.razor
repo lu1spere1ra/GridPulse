@@ -1,0 +1,109 @@
+@page "/meters/{Id:int}"
+@implements IAsyncDisposable
+@inject ITelemetryFeed Feed
+@inject GridPulseApiClient Api
+@inject TimeProvider Time
+
+<PageTitle>@(_meter?.Serial ?? "Meter") · GridPulse</PageTitle>
+
+@if (_notFound)
+{
+    <h1>Meter not found</h1>
+    <p>No meter has id @Id. <a href="meters">Back to the meter list</a>.</p>
+    return;
+}
+
+<section class="gp-hero" aria-labelledby="meter-heading">
+    <header class="gp-hero-head">
+        <h1 id="meter-heading">@(_meter?.Serial ?? "Loading meter")</h1>
+        <p class="gp-hero-value" aria-live="polite">@(_latest is null ? "–" : Format.Power(_latest.PowerW))</p>
+        <p class="gp-muted">@(string.Join(" · ", new[] { _meter?.Name, _meter?.Zone }.Where(s => !string.IsNullOrEmpty(s)))) @(_latest is null ? "Waiting for the next reading" : $"Last reading {Format.Time(_latest.Ts)}")</p>
+    </header>
+    <LineChart Points="_live.ToList()" Height="220" Label="Live power of this meter, last 5 minutes" EmptyText="Waiting for live readings" />
+</section>
+
+<section aria-labelledby="history-heading" class="gp-section">
+    <div class="gp-section-head">
+        <h2 id="history-heading">History</h2>
+        <MudChipSet T="int" SelectedValue="_hours" SelectedValueChanged="SelectRangeAsync" CheckMark="false" SelectionMode="SelectionMode.SingleSelection" SelectedColor="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+            <MudChip T="int" Value="1">1 hour</MudChip>
+            <MudChip T="int" Value="24">24 hours</MudChip>
+            <MudChip T="int" Value="168">7 days</MudChip>
+        </MudChipSet>
+    </div>
+    <LineChart Points="_history" Height="200" Color="var(--gp-line)" Label="Average power over the selected range" EmptyText="No readings in this range" />
+    @if (_resolution is { } resolution)
+    {
+        <p class="gp-muted">Resolution: @ResolutionLabel(resolution), @_history.Count points.</p>
+    }
+</section>
+
+@code {
+    private readonly RingBuffer<ChartPoint> _live = new(300);
+    private List<ChartPoint> _history = [];
+    private MeterDto? _meter;
+    private MeterLatest? _latest;
+    private Resolution? _resolution;
+    private bool _notFound;
+    private int _hours = 1;
+
+    [Parameter] public int Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _meter = await Api.GetMeterAsync(Id);
+        _notFound = _meter is null;
+        if (_notFound)
+        {
+            return;
+        }
+
+        Feed.MeterUpdated -= OnMeterUpdated;
+        Feed.MeterUpdated += OnMeterUpdated;
+        await Feed.SubscribeMeterAsync(Id);
+        await LoadHistoryAsync();
+    }
+
+    private async Task SelectRangeAsync(int hours)
+    {
+        _hours = hours;
+        await LoadHistoryAsync();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        var now = Time.GetUtcNow();
+        var series = await Api.GetSeriesAsync(Id, now.AddHours(-_hours), now);
+        _resolution = series?.Resolution;
+        _history = series?.Points.Select(p => new ChartPoint(p.Ts, p.AvgPowerW)).ToList() ?? [];
+    }
+
+    private void OnMeterUpdated(MeterLatest latest)
+    {
+        if (latest.MeterId != Id)
+        {
+            return;
+        }
+
+        InvokeAsync(() =>
+        {
+            _latest = latest;
+            _live.Add(new ChartPoint(latest.Ts, latest.PowerW));
+            StateHasChanged();
+        });
+    }
+
+    private static string ResolutionLabel(Resolution resolution) => resolution switch
+    {
+        Resolution.Raw => "every reading",
+        Resolution.OneMinute => "1-minute averages",
+        Resolution.FifteenMinutes => "15-minute averages",
+        _ => "hourly averages",
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        Feed.MeterUpdated -= OnMeterUpdated;
+        await Feed.UnsubscribeMeterAsync(Id);
+    }
+}

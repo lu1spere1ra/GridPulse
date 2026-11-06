@@ -1,9 +1,33 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
-@Body
+<MudThemeProvider Theme="GridPulseTheme.Theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+<MudLayout>
+    <MudAppBar Elevation="0" Class="gp-appbar">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" aria-label="Toggle navigation" OnClick="() => _drawerOpen = !_drawerOpen" />
+        <a href="" class="gp-brand">GridPulse</a>
+        <MudSpacer />
+        <span class="gp-appbar-note">Simulated smart-meter fleet</span>
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0" Variant="DrawerVariant.Responsive" Class="gp-drawer">
+        <MudNavMenu>
+            <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Bolt">Fleet</MudNavLink>
+            <MudNavLink Href="meters" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.ElectricMeter">Meters</MudNavLink>
+            <MudNavLink Href="alerts" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.NotificationsActive">Alerts</MudNavLink>
+            <MudNavLink Href="alert-rules" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Rule">Alert rules</MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
+    <MudMainContent>
+        <main class="gp-page">
+            <ConnectionBanner />
+            @Body
+        </main>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+}
