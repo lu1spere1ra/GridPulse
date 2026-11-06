@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace GridPulse.Core.Contracts;
 
 /// <summary>Fleet-wide numbers, published once per second by ingestion.</summary>
@@ -28,12 +30,14 @@ public sealed record WindowClosed(
     double MaxPowerW,
     long EnergyWh);
 
+[JsonConverter(typeof(JsonStringEnumConverter<AlertState>))]
 public enum AlertState
 {
     Firing,
     Resolved,
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<AlertRuleType>))]
 public enum AlertRuleType
 {
     Threshold,

@@ -1,7 +1,9 @@
+using System.Text.Json.Serialization;
 using GridPulse.Core.Contracts;
 
 namespace GridPulse.Core.Alerts;
 
+[JsonConverter(typeof(JsonStringEnumConverter<ThresholdAggregate>))]
 public enum ThresholdAggregate
 {
     /// <summary>Average power over the closed 1-minute window.</summary>
