@@ -22,7 +22,7 @@ public sealed class SimulatedMeter
     public SimulatedMeter(int index, int seed)
     {
         Serial = FormatSerial(index);
-        _random = new Random(HashCode.Combine(seed, index));
+        _random = new Random(DeriveSeed(seed, index));
         _baseLoadW = 150 + (_random.NextDouble() * 350);
         _peakLoadW = 800 + (_random.NextDouble() * 2_200);
         _profileShiftHours = (_random.NextDouble() - 0.5) * 1.5;
@@ -34,6 +34,12 @@ public sealed class SimulatedMeter
     public bool IsOffline(DateTimeOffset now) => now < _offlineUntil;
 
     public static string FormatSerial(int index) => $"MTR-{index:D6}";
+
+    /// <summary>
+    /// Per-meter seed. Plain arithmetic on purpose: <see cref="HashCode"/> is randomised per process,
+    /// which would give every meter a different energy register after each restart.
+    /// </summary>
+    public static int DeriveSeed(int seed, int index) => unchecked((seed * 1_000_003) + index);
 
     /// <summary>
     /// Advances the meter to <paramref name="now"/>. Returns <c>null</c> while the meter is

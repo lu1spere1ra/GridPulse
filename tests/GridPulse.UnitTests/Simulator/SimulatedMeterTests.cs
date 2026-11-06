@@ -20,6 +20,13 @@ public sealed class SimulatedMeterTests
     }
 
     [Fact]
+    public void Seeds_are_stable_across_processes()
+    {
+        // A constant, not a comparison of two instances: this catches process-randomised hashing.
+        SimulatedMeter.DeriveSeed(42, 7).ShouldBe(42_000_133);
+    }
+
+    [Fact]
     public void Energy_register_never_decreases()
     {
         var meter = new SimulatedMeter(1, seed: 1);
