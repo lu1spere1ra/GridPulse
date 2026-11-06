@@ -1,0 +1,31 @@
+name: gridpulse
+
+# Host ports are restricted to 5300-5399 (see docs/PLAN.md, section 6).
+
+services:
+  db:
+    image: timescale/timescaledb:2.31.0-pg17
+    environment:
+      POSTGRES_USER: gridpulse
+      POSTGRES_PASSWORD: gridpulse
+      POSTGRES_DB: gridpulse
+    ports: ["5310:5432"]
+    volumes: [db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gridpulse -d gridpulse"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mqtt:
+    image: eclipse-mosquitto:2.0.22
+    ports: ["5320:1883"]
+    volumes: [./deploy/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro]
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/broker/uptime' -C 1 -W 3"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  db-data:
